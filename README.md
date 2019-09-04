@@ -7,6 +7,8 @@ To use, pass a braid in the query string as a number of strands followed by a li
 show-braid.html?4:1,2,1,3,2,1,-3,-2,-3,-1,-2,-3
 ```
 
+![example braid](example-braid.png)
+
 If you don't specify the strand count it will be automatically inferred:
 ```
 show-braid.html?1,-5
