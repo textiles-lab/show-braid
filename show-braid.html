@@ -1,0 +1,348 @@
+<html>
+<head>
+<link href="https://fonts.googleapis.com/css?family=Open+Sans:300,800" rel="stylesheet">
+<style>
+body {
+	padding:0;
+	margin:0;
+	width:100vw;
+	float:left;
+	background:#444;
+	color:#fff;
+}
+h1 {
+	font-size:5vh;
+	line-height:5vh;
+	height:5vh;
+	margin:0;
+	padding:0;
+	font-family: 'Open Sans', sans-serif;
+	font-weight:300;
+}
+</style>
+</head>
+<body>
+<h1>Show Braid</h1>
+<canvas
+	class="Braid"
+	style="width:98vw; height:93vh; margin:0 auto; padding:0; display:block;"
+	data-strands="5"
+	data-word="s1 s1- s2 s2 s4 s3- s1 s1 s4- s2"
+	></canvas>
+<script>
+"use strict";
+function Braid(elt){
+	this.canvas = elt;
+	this.ctx = this.canvas.getContext('2d');
+
+	let strands = parseInt(elt.dataset.strands || "-1");
+	let word = elt.dataset.word;
+
+	this.swaps = [];
+
+	this.setWord(strands, word);
+
+	let me = this;
+	window.addEventListener('resize', function(){
+		let style = getComputedStyle(me.canvas);
+		const width = parseFloat(style.width) * window.devicePixelRatio;
+		const height = parseFloat(style.height) * window.devicePixelRatio;
+		if (me.canvas.width !== width || me.canvas.height !== height) {
+			me.requestRedraw();
+		}
+	});
+}
+
+Braid.prototype.setWord = function Braid_setWord(strands, word) {
+	let autoStrands = (strands < 0);
+	this.strands = strands;
+	this.swaps = [];
+	word.replace(/[^0-9-]+/g, ' ').trim().split(/\s+/).forEach(function(w){
+		let i, d;
+		let idx = w.indexOf('-');
+		if (idx !== -1) {
+			w = w.substr(0,idx) + w.substr(idx+1);
+			i = parseInt(w)-1;
+			d = '-';
+		} else {
+			i = parseInt(w)-1;
+			d = '+';
+		}
+		if (autoStrands) {
+			this.strands = Math.max(i+2, this.strands);
+		}
+		console.assert(i >= 0 && i + 1 < this.strands, "word (" + word + ") is less than strands (" + this.strands + ")");
+		this.swaps.push({i:i, d:d});
+	},this);
+	this.requestRedraw();
+};
+
+//goes from [0,1],[0,1],[0,1] hsv to '#rrggbb' color:
+function hsvToHex(h,s,v) {
+	h = 6*(h - Math.floor(h));
+	let rgb;
+	if (h < 1.0) {
+		rgb = [1.0, h, 0.0];
+	} else if (h < 2.0) { h -= 1.0;
+		rgb = [1.0-h, 1.0, 0.0];
+	} else if (h < 3.0) { h -= 2.0;
+		rgb = [0.0, 1.0, h];
+	} else if (h < 4.0) { h -= 3.0;
+		rgb = [0.0, 1.0-h, 1.0];
+	} else if (h < 5.0) { h -= 4.0;
+		rgb = [h, 0.0, 1.0];
+	} else { //h < 6.0
+		h -= 6.0;
+		rgb = [1.0, 0.0, 1.0-h];
+	}
+	rgb = [v*s*rgb[0]+(1-s),v*s*rgb[1]+(1-s),v*s*rgb[2]+(1-s)]
+	function toHex(val) {
+		val = Math.round(255.0*val);
+		val = Math.max(0,val);
+		val = Math.min(255,val);
+		let ret = val.toString(16);
+		while (ret.length < 2) ret = "0" + ret;
+		return ret;
+	}
+	return '#' + toHex(rgb[0]) + toHex(rgb[1]) + toHex(rgb[2]);
+}
+
+
+Braid.prototype.redraw = function Braid_redraw() {
+	const ctx = this.ctx;
+
+	let style = getComputedStyle(this.canvas);
+	const width = parseFloat(style.width) * window.devicePixelRatio;
+	const height = parseFloat(style.height) * window.devicePixelRatio;
+	this.canvas.width = width;
+	this.canvas.height = height;
+
+
+	const GAP = 0.0; //minimum vertical space between crossing tiles
+	const HEIGHT = 7.0;
+	const WIDTH = 10.0;
+	const INSET = 3.0;
+	const INSET_Y = INSET/WIDTH*HEIGHT;
+
+	const LINE_WIDTH = 2.0; //width of strands
+	const LINE_GAP = 4.0; //width of gap around top strand
+
+	const BG = '#888'; //background color
+	const STYLES = []; //strand colors
+	for (let i = 0; i < this.strands; ++i) {
+		STYLES.push(hsvToHex(0.5*((i+0.5) / this.strands), 1.0, 1.0));
+	}
+
+
+	ctx.setTransform(1,0, 0,1, 0,0);
+	ctx.fillStyle = BG;
+	ctx.fillRect(0,0, width,height);
+
+	let tiles = [];
+	let bottoms = [];
+	for (let s = 0; s < this.strands; ++s) {
+		bottoms.push({x:WIDTH*s, y:0.0, t1:null, t2:null, st:STYLES[s%STYLES.length]});
+	}
+	this.swaps.forEach(function(sw){
+		let tile = {d:sw.d};
+		tile.tl = bottoms[sw.i];
+		tile.tr = bottoms[sw.i+1];
+		tile.tl.t2 = tile;
+		tile.tr.t2 = tile;
+		tile.y = Math.max(tile.tl.y, tile.tr.y) + GAP + 0.5 * HEIGHT;
+		tile.x = WIDTH * (sw.i + 0.5);
+		tile.bl = {x:WIDTH*sw.i, y:tile.y + 0.5*HEIGHT, t1:tile, t2:null, st:tile.tr.st};
+		tile.br = {x:WIDTH*(sw.i+1), y:tile.y + 0.5*HEIGHT, t1:tile, t2:null, st:tile.tl.st};
+		tiles.push(tile);
+		bottoms[sw.i] = tile.bl;
+		bottoms[sw.i+1] = tile.br;
+	}, this);
+
+	let min = 0.0;
+	let max = 0.0;
+	bottoms.forEach(function(pt){
+		max = Math.max(max, pt.y+GAP);
+	});
+
+	bottoms.forEach(function(pt){
+		pt.y = max;
+	});
+
+	
+	//Try to get a better arrangement by moving points and tiles:
+	for (let iter = 0; iter < 10; ++iter) {
+		//space tiles evenly between their top and bottom points:
+		tiles.forEach(function(tile){
+			let t = Math.max(tile.tr.y, tile.tl.y) + GAP + 0.5*HEIGHT;
+			let b = Math.min(tile.br.y, tile.bl.y) - GAP - 0.5*HEIGHT;
+			tile.y = 0.5 * (t + b);
+		});
+		//space points evenly between their top and bottom tiles:
+		function doPt(pt) {
+			console.assert(pt.t1 && pt.t2);
+			let t = pt.t1.y + 0.5*HEIGHT;
+			let b = pt.t2.y - 0.5*HEIGHT;
+			pt.y = 0.5 * (t + b);
+		};
+		tiles.forEach(function(tile) {
+			if (tile.tr.t1 !== null) doPt(tile.tr);
+			if (tile.tl.t1 !== null) doPt(tile.tl);
+		});
+	}
+
+	function getTop(tile, pt) {
+		if (tile === null) {
+			return [ {x:pt.x, y:max+INSET_Y}, {x:pt.x, y:max} ]
+		}
+		if (pt === tile.tl) {
+			return [
+				{x:tile.x-0.5*WIDTH + INSET, y:tile.y-0.5*HEIGHT + INSET_Y},
+				{x:tile.x-0.5*WIDTH, y:tile.y-0.5*HEIGHT}
+			]
+		} else if (pt == tile.tr) {
+			return [
+				{x:tile.x+0.5*WIDTH - INSET, y:tile.y-0.5*HEIGHT + INSET_Y},
+				{x:tile.x+0.5*WIDTH, y:tile.y-0.5*HEIGHT}
+			]
+		} else {
+			throw new Error("getTop on a non-top.");
+		}
+	}
+	function getBottom(tile, pt) {
+		if (tile === null) {
+			return [ {x:pt.x, y:min-INSET_Y}, {x:pt.x, y:min} ]
+		}
+		if (pt === tile.bl) {
+			return [
+				{x:tile.x-0.5*WIDTH + INSET, y:tile.y+0.5*HEIGHT - INSET_Y},
+				{x:tile.x-0.5*WIDTH, y:tile.y+0.5*HEIGHT}
+			]
+		} else if (pt == tile.br) {
+			return [
+				{x:tile.x+0.5*WIDTH - INSET, y:tile.y+0.5*HEIGHT - INSET_Y},
+				{x:tile.x+0.5*WIDTH, y:tile.y+0.5*HEIGHT}
+			]
+		} else {
+			throw new Error("getBottom on a non-bottom.");
+		}
+	}
+
+	const scale = Math.min(
+		width / (WIDTH*this.strands+LINE_WIDTH),
+		height / (max-min + HEIGHT)
+	);
+	const px = 1.0 / scale;
+
+
+	ctx.setTransform(scale,0, 0,scale, 0.5*width-scale*(0.5*WIDTH*(this.strands-1)), 0.5*height-scale*(0.5*(max-min))-min);
+
+	//draw all connectors:
+	ctx.lineWidth = LINE_WIDTH;
+	tiles.forEach(function(tile){
+		//connect from tile below:
+		let [l0, l1] = getBottom(tile.tl.t1, tile.tl);
+		let [l3, l2] = getTop(tile, tile.tl);
+
+		let [r0, r1] = getBottom(tile.tr.t1, tile.tr);
+		let [r3, r2] = getTop(tile, tile.tr);
+
+		ctx.beginPath();
+		ctx.moveTo(l0.x, l0.y);
+		ctx.bezierCurveTo(l1.x, l1.y, l2.x, l2.y, l3.x, l3.y);
+		ctx.lineCap = 'butt';
+		ctx.strokeStyle = tile.tl.st;
+		ctx.stroke();
+
+		ctx.beginPath();
+		ctx.moveTo(r0.x, r0.y);
+		ctx.bezierCurveTo(r1.x, r1.y, r2.x, r2.y, r3.x, r3.y);
+		ctx.lineCap = 'butt';
+		ctx.strokeStyle = tile.tr.st;
+		ctx.stroke();
+	});
+
+	bottoms.forEach(function(pt){
+		const [l0, l1] = getBottom(pt.t1, pt);
+		const [l3, l2] = getTop(pt.t2, pt);
+		ctx.beginPath();
+		ctx.moveTo(l0.x, l0.y);
+		ctx.bezierCurveTo(l1.x, l1.y, l2.x, l2.y, l3.x, l3.y);
+		ctx.lineCap = 'butt';
+		ctx.strokeStyle = pt.st;
+		ctx.stroke();
+	});
+
+
+	//draw crossings:
+	tiles.forEach(function(tile){
+		if (tile.d === '-') {
+			ctx.beginPath();
+			ctx.moveTo(tile.x - 0.5*WIDTH + INSET, tile.y + 0.5*HEIGHT - INSET_Y);
+			ctx.lineTo(tile.x + 0.5*WIDTH - INSET, tile.y - 0.5*HEIGHT + INSET_Y);
+			ctx.lineCap = 'round';
+			ctx.strokeStyle = tile.tr.st;
+			ctx.stroke();
+
+			ctx.beginPath();
+			ctx.moveTo(tile.x - 0.5*WIDTH + INSET, tile.y - 0.5*HEIGHT + INSET_Y);
+			ctx.lineTo(tile.x + 0.5*WIDTH - INSET, tile.y + 0.5*HEIGHT - INSET_Y);
+			ctx.lineCap = 'butt';
+			ctx.lineWidth = LINE_GAP;
+			ctx.strokeStyle = BG;
+			ctx.stroke();
+			ctx.lineCap = 'round';
+			ctx.lineWidth = LINE_WIDTH;
+			ctx.strokeStyle = tile.tl.st;
+			ctx.stroke();
+		} else {
+			ctx.beginPath();
+			ctx.moveTo(tile.x - 0.5*WIDTH + INSET, tile.y - 0.5*HEIGHT + INSET_Y);
+			ctx.lineTo(tile.x + 0.5*WIDTH - INSET, tile.y + 0.5*HEIGHT - INSET_Y);
+			ctx.lineCap = 'round';
+			ctx.strokeStyle = tile.tl.st;
+			ctx.stroke();
+
+			ctx.beginPath();
+			ctx.moveTo(tile.x - 0.5*WIDTH + INSET, tile.y + 0.5*HEIGHT - INSET_Y);
+			ctx.lineTo(tile.x + 0.5*WIDTH - INSET, tile.y - 0.5*HEIGHT + INSET_Y);
+			ctx.lineCap = 'butt';
+			ctx.lineWidth = LINE_GAP;
+			ctx.strokeStyle = BG;
+			ctx.stroke();
+
+			ctx.lineCap = 'round';
+			ctx.lineWidth = LINE_WIDTH;
+			ctx.strokeStyle = tile.tr.st;
+			ctx.stroke();
+		}
+	});
+};
+
+Braid.prototype.requestRedraw = function Braid_requestRedraw() {
+	if (this.requested) return;
+	this.requested = true;
+	let me = this;
+	window.requestAnimationFrame(function(){
+		delete me.requested;
+		me.redraw();
+	});
+};
+
+let elts = document.getElementsByClassName("Braid");
+for (let i = 0; i < elts.length; ++i) {
+	window.B = new Braid(elts[i]);
+}
+
+if (document.location.search !== '') {
+	let q = document.location.search.substr(1);
+	let idx = q.indexOf(':');
+	let strands = -1;
+	if (idx !== -1) {
+		strands = parseInt(q.substr(0,idx));
+		q = q.substr(idx+1);
+	}
+	window.B.setWord(strands,q);
+}
+</script>
+</body>
+</html>
