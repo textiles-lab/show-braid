@@ -1,6 +1,6 @@
 # Show Braid
 
-Quick javascript hack to show braids. Braid words are drawn with the rightmost generator corresponding to the bottom of the visualization.
+Quick javascript hack to show braids. Braid words are drawn with the rightmost generator in the word at the bottom of the visualization. Positive generators are left-over-right and negative are right-over-left. (Though both of these things could be changed with a few careful edits in `Braid_redraw`.)
 
 To use, pass a braid in the query string as a number of strands followed by a list of generators:
 ```
