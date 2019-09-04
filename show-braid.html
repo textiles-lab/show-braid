@@ -1,31 +1,33 @@
 <html>
 <head>
-<link href="https://fonts.googleapis.com/css?family=Open+Sans:300,800" rel="stylesheet">
 <style>
 body {
-	padding:0;
+	padding:10px;
 	margin:0;
 	width:100vw;
-	float:left;
+	height:100vh;
 	background:#444;
 	color:#fff;
+	display:block;
+	overflow:hidden;
+	box-sizing:border-box;
 }
-h1 {
-	font-size:5vh;
-	line-height:5vh;
-	height:5vh;
-	margin:0;
-	padding:0;
-	font-family: 'Open Sans', sans-serif;
-	font-weight:300;
+
+canvas.Braid {
+	box-sizing:border-box;
+	display:block;
+	min-width:1px;
+	min-height:1px;
+	width:100%;
+	height:100%;
+	margin:0; padding:0;
+	border-radius:10px;
 }
 </style>
 </head>
 <body>
-<h1>Show Braid</h1>
 <canvas
 	class="Braid"
-	style="width:98vw; height:93vh; margin:0 auto; padding:0; display:block;"
 	data-strands="5"
 	data-word="s1 s1- s2 s2 s4 s3- s1 s1 s4- s2"
 	></canvas>
