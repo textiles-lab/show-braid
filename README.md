@@ -12,6 +12,8 @@ If you don't specify the strand count it will be automatically inferred:
 show-braid.html?1,-5
 ```
 
+You can adjust how the braid looks by changing the constants near the top of `Braid_redraw`.
+
 ## License
 
 Public domain.
